@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dart: Launch",
+      "type": "dart",
+      "request": "launch",
+      "program": "${workspaceFolder}/Tugas 2/D121241092.dart"
+    }
+  ]
+}  
