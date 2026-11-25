@@ -15,13 +15,15 @@ class PaymentScreen extends StatefulWidget {
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
+class _PaymentScreenState extends State<PaymentScreen>
+    with WidgetsBindingObserver {
   Timer? _countdownTimer;
   DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() => _now = DateTime.now());
@@ -30,7 +32,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      final provider = context.read<BookingProvider>();
+      if (provider.activeBooking?.bookingStatus ==
+          BookingStatus.pendingPayment) {
+        provider.reconcileActivePayment();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -276,6 +290,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         label: 'Buka Halaman DOKU Checkout',
                         icon: Icons.open_in_new,
                         onPressed: () => provider.openActiveCheckoutUrl(),
+                      ),
+                      const SizedBox(height: 10),
+                      StitchSecondaryButton(
+                        label: provider.isCheckingPaymentStatus
+                            ? 'Memeriksa Status DOKU...'
+                            : 'Cek Status Pembayaran',
+                        icon: Icons.refresh,
+                        onPressed: provider.isCheckingPaymentStatus
+                            ? null
+                            : () => provider.reconcileActivePayment(),
                       ),
                       const SizedBox(height: 10),
                     ],

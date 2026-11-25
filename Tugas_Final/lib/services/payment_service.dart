@@ -63,6 +63,17 @@ class PaymentService {
     return DokuPaymentSession.fromMap(Map<String, dynamic>.from(response.data));
   }
 
+  /// Mengecek status pembayaran aktual ke DOKU melalui Cloud Function `reconcilePayment`.
+  Future<Map<String, dynamic>> reconcilePayment({
+    required String bookingId,
+  }) async {
+    final callable = _fn.httpsCallable(AppConstants.fnReconcilePayment);
+    final response = await callable.call<Map<dynamic, dynamic>>({
+      'bookingId': bookingId,
+    });
+    return Map<String, dynamic>.from(response.data);
+  }
+
   Stream<PaymentModel?> watchPaymentById(String paymentId) {
     return _db
         .collection(AppConstants.paymentsCollection)

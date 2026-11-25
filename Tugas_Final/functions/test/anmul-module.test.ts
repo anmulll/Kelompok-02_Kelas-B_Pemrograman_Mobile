@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 import { executeCancelBooking } from "../src/booking/cancel-booking";
 import { executeCreateBooking } from "../src/booking/create-booking";
 import { DokuCheckoutGateway, executeCreateDokuPayment } from "../src/doku/create-payment";
-import { generateDokuSignature } from "../src/doku/signature";
+import { DokuStatusGateway, executeReconcilePayment } from "../src/doku/reconcile-payment";
+import { generateDokuGetSignature, generateDokuSignature } from "../src/doku/signature";
 import { executeDokuWebhook } from "../src/doku/webhook";
 import { executeCleanupExpiredHolds } from "../src/scheduler/cleanup-expired-holds";
 import { InMemoryBackendStore } from "./in-memory-store";
@@ -412,6 +413,135 @@ describe("Modul Anmul — Booking, DOKU Checkout & Backend (AT-01 s.d. AT-12)", 
 
     assert.equal(res.httpStatus, 200);
     assert.equal(store.bookings.get(booking.bookingId)!.bookingStatus, "confirmed");
+  });
+
+  it("reconcilePayment: generateDokuGetSignature deterministik dan status SUCCESS mengonfirmasi booking", async () => {
+    const sig1 = generateDokuGetSignature({
+      clientId: TEST_CLIENT_ID,
+      requestId: "req-get-1",
+      requestTimestamp: "2026-11-26T01:00:00Z",
+      requestTarget: "/orders/v1/status/CM-ORDER-1",
+      secretKey: TEST_SECRET_KEY,
+    });
+    const sig2 = generateDokuGetSignature({
+      clientId: TEST_CLIENT_ID,
+      requestId: "req-get-1",
+      requestTimestamp: "2026-11-26T01:00:00Z",
+      requestTarget: "/orders/v1/status/CM-ORDER-1",
+      secretKey: TEST_SECRET_KEY,
+    });
+    assert.ok(sig1.startsWith("HMACSHA256="));
+    assert.equal(sig1, sig2);
+
+    const store = seedStore();
+    const booking = await executeCreateBooking(
+      store,
+      { uid: "mhs_1", courtId: "court_1", slotId: "slot_1", idempotencyKey: "rec-ok" },
+      NOW_MS
+    );
+    const payment = await executeCreateDokuPayment(
+      store,
+      mockDokuGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 5_000
+    );
+
+    const successGateway: DokuStatusGateway = {
+      async checkOrderStatus(invoiceNumber) {
+        return {
+          invoiceNumber,
+          amount: 150_000,
+          orderStatus: "ORDER_GENERATED",
+          transactionStatus: "SUCCESS",
+          providerTransactionId: "doku-tx-rec-1",
+        };
+      },
+    };
+
+    const res = await executeReconcilePayment(
+      store,
+      successGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 30_000
+    );
+
+    assert.equal(res.bookingStatus, "confirmed");
+    assert.equal(res.outcome, "confirmed");
+    assert.equal(store.bookings.get(booking.bookingId)!.bookingStatus, "confirmed");
+    assert.equal(store.payments.get(payment.paymentId)!.paymentStatus, "paid");
+    assert.equal(store.slots.get("slot_1")!.status, "booked");
+    assert.equal(store.notifications.length, 1);
+  });
+
+  it("reconcilePayment: status PENDING dari DOKU tetap menahan pending_payment (AT-11)", async () => {
+    const store = seedStore();
+    const booking = await executeCreateBooking(
+      store,
+      { uid: "mhs_1", courtId: "court_1", slotId: "slot_1", idempotencyKey: "rec-pend" },
+      NOW_MS
+    );
+    await executeCreateDokuPayment(
+      store,
+      mockDokuGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 5_000
+    );
+
+    const pendingGateway: DokuStatusGateway = {
+      async checkOrderStatus(invoiceNumber) {
+        return {
+          invoiceNumber,
+          orderStatus: "ORDER_GENERATED",
+          transactionStatus: "PENDING",
+        };
+      },
+    };
+
+    const res = await executeReconcilePayment(
+      store,
+      pendingGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 20_000
+    );
+
+    assert.equal(res.bookingStatus, "pending_payment");
+    assert.equal(res.outcome, "still_pending");
+    assert.equal(store.bookings.get(booking.bookingId)!.bookingStatus, "pending_payment");
+  });
+
+  it("reconcilePayment: nominal mismatch dari DOKU Status API ditolak", async () => {
+    const store = seedStore();
+    const booking = await executeCreateBooking(
+      store,
+      { uid: "mhs_1", courtId: "court_1", slotId: "slot_1", idempotencyKey: "rec-mismatch" },
+      NOW_MS
+    );
+    await executeCreateDokuPayment(
+      store,
+      mockDokuGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 5_000
+    );
+
+    const mismatchGateway: DokuStatusGateway = {
+      async checkOrderStatus(invoiceNumber) {
+        return {
+          invoiceNumber,
+          amount: 10_000,
+          transactionStatus: "SUCCESS",
+        };
+      },
+    };
+
+    const res = await executeReconcilePayment(
+      store,
+      mismatchGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 20_000
+    );
+
+    assert.equal(res.outcome, "rejected_mismatch");
+    assert.equal(store.bookings.get(booking.bookingId)!.bookingStatus, "pending_payment");
   });
 
   it("AT-12: Secret scan pada kode aplikasi Flutter (lib/) tidak mengandung DOKU_SECRET_KEY", () => {

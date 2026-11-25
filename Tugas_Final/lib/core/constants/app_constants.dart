@@ -19,6 +19,7 @@ class AppConstants {
   // Cloud Functions Callables (CM-ARCH-DB-001 Bab 5)
   static const String fnCreateBooking = 'createBooking';
   static const String fnCreateDokuPayment = 'createDokuPayment';
+  static const String fnReconcilePayment = 'reconcilePayment';
   static const String fnCancelBooking = 'cancelBooking';
   static const String fnManageCourt = 'manageCourt';
 }

@@ -55,6 +55,7 @@ class BookingProvider extends ChangeNotifier {
   PaymentModel? _watchedActivePayment;
   DokuPaymentSession? _activePaymentSession;
   bool _hasOpenedCheckoutBrowser = false;
+  bool _isCheckingPaymentStatus = false;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -74,6 +75,7 @@ class BookingProvider extends ChangeNotifier {
   bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
   bool get hasOpenedCheckoutBrowser => _hasOpenedCheckoutBrowser;
+  bool get isCheckingPaymentStatus => _isCheckingPaymentStatus;
   DokuPaymentSession? get activePaymentSession => _activePaymentSession;
   PaymentModel? get activePayment => _watchedActivePayment;
 
@@ -524,6 +526,33 @@ class BookingProvider extends ChangeNotifier {
     _hasOpenedCheckoutBrowser = true;
     notifyListeners();
     return launched;
+  }
+
+  /// Memeriksa status pembayaran ke DOKU Status API melalui backend `reconcilePayment`
+  /// ketika pengguna kembali ke aplikasi atau menekan tombol "Cek Status Pembayaran".
+  /// Pada mode sandbox lokal tetap tidak mengubah status agar proteksi AT-11 terjaga.
+  Future<void> reconcileActivePayment() async {
+    if (_isCheckingPaymentStatus) return;
+    final booking = activeBooking;
+    if (booking == null ||
+        booking.bookingStatus != BookingStatus.pendingPayment) {
+      return;
+    }
+    if (isUsingLocalSandbox) {
+      return;
+    }
+
+    _isCheckingPaymentStatus = true;
+    notifyListeners();
+
+    try {
+      await _paymentService.reconcilePayment(bookingId: booking.id);
+    } catch (error) {
+      debugPrint('BookingProvider.reconcileActivePayment error: $error');
+    } finally {
+      _isCheckingPaymentStatus = false;
+      notifyListeners();
+    }
   }
 
   /// Khusus mode pratinjau lokal tanpa server: menyimulasikan masuknya webhook DOKU ke backend

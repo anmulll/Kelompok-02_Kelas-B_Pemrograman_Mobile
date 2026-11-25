@@ -9,12 +9,20 @@ export interface DokuSignatureInput {
   secretKey: string;
 }
 
+export interface DokuGetSignatureInput {
+  clientId: string;
+  requestId: string;
+  requestTimestamp: string;
+  requestTarget: string;
+  secretKey: string;
+}
+
 export function computeBodyDigest(rawBody: string): string {
   return crypto.createHash("sha256").update(rawBody, "utf8").digest("base64");
 }
 
 /**
- * Pembentukan komponen Digest & HMAC-SHA256 sesuai spesifikasi resmi DOKU Checkout API.
+ * Pembentukan komponen Digest & HMAC-SHA256 sesuai spesifikasi resmi DOKU Checkout API (POST).
  */
 export function generateDokuSignature(input: DokuSignatureInput): string {
   const digest = computeBodyDigest(input.rawBody);
@@ -25,6 +33,25 @@ export function generateDokuSignature(input: DokuSignatureInput): string {
     `Request-Timestamp:${input.requestTimestamp}`,
     `Request-Target:${input.requestTarget}`,
     `Digest:${digest}`,
+  ].join("\n");
+
+  const hmac = crypto
+    .createHmac("sha256", input.secretKey)
+    .update(componentSignature, "utf8")
+    .digest("base64");
+
+  return `HMACSHA256=${hmac}`;
+}
+
+/**
+ * Pembentukan signature HMAC-SHA256 untuk metode GET DOKU (tanpa komponen Digest).
+ */
+export function generateDokuGetSignature(input: DokuGetSignatureInput): string {
+  const componentSignature = [
+    `Client-Id:${input.clientId}`,
+    `Request-Id:${input.requestId}`,
+    `Request-Timestamp:${input.requestTimestamp}`,
+    `Request-Target:${input.requestTarget}`,
   ].join("\n");
 
   const hmac = crypto
