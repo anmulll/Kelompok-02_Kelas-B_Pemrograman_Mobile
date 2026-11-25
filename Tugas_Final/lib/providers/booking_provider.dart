@@ -47,6 +47,8 @@ class BookingProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
 
   String? _activeBookingId;
+  BookingModel? _watchedActiveBooking;
+  PaymentModel? _watchedActivePayment;
   DokuPaymentSession? _activePaymentSession;
   bool _hasOpenedCheckoutBrowser = false;
   bool _isSubmitting = false;
@@ -54,6 +56,11 @@ class BookingProvider extends ChangeNotifier {
 
   StreamSubscription<List<SlotModel>>? _slotsSub;
   StreamSubscription<List<BookingModel>>? _bookingsSub;
+  StreamSubscription<BookingModel?>? _activeBookingSub;
+  StreamSubscription<PaymentModel?>? _activePaymentSub;
+  StreamSubscription<List<InvitationModel>>? _receivedInvitesSub;
+  StreamSubscription<List<InvitationModel>>? _sentInvitesSub;
+  StreamSubscription<List<NotificationModel>>? _notificationsSub;
 
   String get selectedCourtId => _selectedCourtId;
   String get selectedCourtName => _selectedCourtName;
@@ -64,6 +71,7 @@ class BookingProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get hasOpenedCheckoutBrowser => _hasOpenedCheckoutBrowser;
   DokuPaymentSession? get activePaymentSession => _activePaymentSession;
+  PaymentModel? get activePayment => _watchedActivePayment;
 
   List<SlotModel> get slots => List.unmodifiable(_slots);
   List<BookingModel> get bookings => List.unmodifiable(_bookings);
@@ -88,6 +96,10 @@ class BookingProvider extends ChangeNotifier {
   BookingModel? get activeBooking {
     if (_activeBookingId == null) {
       return _bookings.isNotEmpty ? _bookings.first : null;
+    }
+    if (_watchedActiveBooking != null &&
+        _watchedActiveBooking!.id == _activeBookingId) {
+      return _watchedActiveBooking;
     }
     for (final b in _bookings) {
       if (b.id == _activeBookingId) return b;
@@ -257,14 +269,88 @@ class BookingProvider extends ChangeNotifier {
   void setActiveBooking(String bookingId) {
     _activeBookingId = bookingId;
     _hasOpenedCheckoutBrowser = false;
+    _watchActiveBooking(bookingId);
     notifyListeners();
   }
 
-  void bindUserStreams(String userId) {
+  /// Menghubungkan seluruh stream real-time Firestore milik pengguna yang login
+  /// (`bookings`, `invitations` masuk & terkirim, serta `notifications`).
+  void bindUserStreams(String userId, {String? email}) {
     if (isUsingLocalSandbox) return;
+
     _bookingsSub?.cancel();
     _bookingsSub = _bookingService.watchUserBookings(userId).listen((items) {
       _bookings = items;
+      notifyListeners();
+    });
+
+    _sentInvitesSub?.cancel();
+    _sentInvitesSub = _bookingService.watchSentInvitations(userId).listen((
+      items,
+    ) {
+      _sentInvitations = items;
+      notifyListeners();
+    });
+
+    _notificationsSub?.cancel();
+    _notificationsSub = _bookingService.watchUserNotifications(userId).listen((
+      items,
+    ) {
+      _notifications = items;
+      notifyListeners();
+    });
+
+    _receivedInvitesSub?.cancel();
+    if (email != null && email.trim().isNotEmpty) {
+      _receivedInvitesSub = _bookingService
+          .watchReceivedInvitations(email)
+          .listen((items) {
+            _receivedInvitations = items;
+            notifyListeners();
+          });
+    }
+  }
+
+  void unbindUserStreams() {
+    _bookingsSub?.cancel();
+    _activeBookingSub?.cancel();
+    _activePaymentSub?.cancel();
+    _receivedInvitesSub?.cancel();
+    _sentInvitesSub?.cancel();
+    _notificationsSub?.cancel();
+    _watchedActiveBooking = null;
+    _watchedActivePayment = null;
+    _activeBookingId = null;
+    _activePaymentSession = null;
+    notifyListeners();
+  }
+
+  void _watchActiveBooking(String bookingId) {
+    if (isUsingLocalSandbox) return;
+
+    _activeBookingSub?.cancel();
+    _activeBookingSub = _bookingService.watchBookingById(bookingId).listen((
+      booking,
+    ) {
+      _watchedActiveBooking = booking;
+      final paymentId = booking?.paymentId;
+      if (paymentId != null &&
+          paymentId.isNotEmpty &&
+          _watchedActivePayment?.id != paymentId) {
+        _watchActivePayment(paymentId);
+      }
+      notifyListeners();
+    });
+  }
+
+  void _watchActivePayment(String paymentId) {
+    if (isUsingLocalSandbox) return;
+
+    _activePaymentSub?.cancel();
+    _activePaymentSub = _paymentService.watchPaymentById(paymentId).listen((
+      payment,
+    ) {
+      _watchedActivePayment = payment;
       notifyListeners();
     });
   }
@@ -368,6 +454,10 @@ class BookingProvider extends ChangeNotifier {
       _activeBookingId = bookingResult.bookingId;
       _activePaymentSession = session;
       _selectedSlotId = null;
+      _watchActiveBooking(bookingResult.bookingId);
+      if (session.paymentId.isNotEmpty) {
+        _watchActivePayment(session.paymentId);
+      }
       return session;
     } catch (error) {
       _errorMessage =
@@ -610,6 +700,11 @@ class BookingProvider extends ChangeNotifier {
   void dispose() {
     _slotsSub?.cancel();
     _bookingsSub?.cancel();
+    _activeBookingSub?.cancel();
+    _activePaymentSub?.cancel();
+    _receivedInvitesSub?.cancel();
+    _sentInvitesSub?.cancel();
+    _notificationsSub?.cancel();
     super.dispose();
   }
 }

@@ -1,10 +1,58 @@
+import 'dart:async';
 import 'package:courtmate/models/booking_model.dart';
 import 'package:courtmate/models/invitation_model.dart';
 import 'package:courtmate/models/payment_model.dart';
 import 'package:courtmate/models/slot_model.dart';
 import 'package:courtmate/providers/booking_provider.dart';
+import 'package:courtmate/services/booking_service.dart';
 import 'package:courtmate/services/payment_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _FakeCloudBookingService extends BookingService {
+  final bookingsCtrl = StreamController<List<BookingModel>>.broadcast();
+  final activeBookingCtrl = StreamController<BookingModel?>.broadcast();
+  final receivedInvCtrl = StreamController<List<InvitationModel>>.broadcast();
+  final sentInvCtrl = StreamController<List<InvitationModel>>.broadcast();
+  final notifCtrl = StreamController<List<NotificationModel>>.broadcast();
+
+  @override
+  Stream<List<BookingModel>> watchUserBookings(String userId) =>
+      bookingsCtrl.stream;
+
+  @override
+  Stream<BookingModel?> watchBookingById(String bookingId) =>
+      activeBookingCtrl.stream;
+
+  @override
+  Stream<List<InvitationModel>> watchReceivedInvitations(String email) =>
+      receivedInvCtrl.stream;
+
+  @override
+  Stream<List<InvitationModel>> watchSentInvitations(String senderId) =>
+      sentInvCtrl.stream;
+
+  @override
+  Stream<List<NotificationModel>> watchUserNotifications(String userId) =>
+      notifCtrl.stream;
+
+  Future<void> closeAll() async {
+    await bookingsCtrl.close();
+    await activeBookingCtrl.close();
+    await receivedInvCtrl.close();
+    await sentInvCtrl.close();
+    await notifCtrl.close();
+  }
+}
+
+class _FakeCloudPaymentService extends PaymentService {
+  final paymentCtrl = StreamController<PaymentModel?>.broadcast();
+
+  @override
+  Stream<PaymentModel?> watchPaymentById(String paymentId) =>
+      paymentCtrl.stream;
+
+  Future<void> closeAll() => paymentCtrl.close();
+}
 
 void main() {
   group('BookingProvider — Modul Anmul (Booking, Payment AT-11, Cancel, Invitation)', () {
@@ -113,4 +161,83 @@ void main() {
       expect(provider.unreadNotificationCount, unreadBefore - 1);
     });
   });
+
+  test(
+    'Live Cloud Mode: bindUserStreams & setActiveBooking menerima pembaruan real-time Firestore',
+    () async {
+      final fakeBookingSvc = _FakeCloudBookingService();
+      final fakePaymentSvc = _FakeCloudPaymentService();
+      final liveProvider = BookingProvider(
+        bookingService: fakeBookingSvc,
+        paymentService: fakePaymentSvc,
+        useLocalSandbox: false,
+      );
+
+      final now = DateTime(2026, 11, 25, 19);
+      liveProvider.bindUserStreams('uid_anmul', email: 'anmul@kampus.ac.id');
+      liveProvider.setActiveBooking('bk_live_1');
+
+      fakeBookingSvc.receivedInvCtrl.add([
+        InvitationModel(
+          id: 'inv_live_1',
+          bookingId: 'bk_caca',
+          senderId: 'uid_caca',
+          recipientIdentifier: 'anmul@kampus.ac.id',
+          createdAt: now,
+        ),
+      ]);
+      fakeBookingSvc.notifCtrl.add([
+        NotificationModel(
+          id: 'notif_live_1',
+          userId: 'uid_anmul',
+          title: 'Booking Terkonfirmasi',
+          body: 'Webhook DOKU sukses.',
+          type: 'booking_confirmed',
+          createdAt: now,
+        ),
+      ]);
+      fakeBookingSvc.activeBookingCtrl.add(
+        BookingModel(
+          id: 'bk_live_1',
+          userId: 'uid_anmul',
+          courtId: 'court_1',
+          slotId: 'slot_1',
+          startAt: now,
+          endAt: now.add(const Duration(hours: 1)),
+          amount: 150000,
+          bookingStatus: BookingStatus.confirmed,
+          paymentId: 'pay_live_1',
+          idempotencyKey: 'idem_live',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      fakePaymentSvc.paymentCtrl.add(
+        PaymentModel(
+          id: 'pay_live_1',
+          bookingId: 'bk_live_1',
+          userId: 'uid_anmul',
+          providerOrderId: 'CM-LIVE-001',
+          amount: 150000,
+          paymentStatus: PaymentStatus.paid,
+          checkoutUrl: 'https://sandbox.doku.com/checkout/CM-LIVE-001',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(liveProvider.receivedInvitations.length, 1);
+      expect(liveProvider.unreadNotificationCount, 1);
+      expect(liveProvider.activeBooking?.bookingStatus, BookingStatus.confirmed);
+      expect(liveProvider.activePayment?.paymentStatus, PaymentStatus.paid);
+
+      liveProvider.unbindUserStreams();
+      liveProvider.dispose();
+      await fakeBookingSvc.closeAll();
+      await fakePaymentSvc.closeAll();
+    },
+  );
 }
