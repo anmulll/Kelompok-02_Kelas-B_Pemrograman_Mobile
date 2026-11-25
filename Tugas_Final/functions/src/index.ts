@@ -4,9 +4,9 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-export { createBooking } from "./booking/createBooking";
-export { cancelBooking } from "./booking/cancelBooking";
-export { createDokuPayment } from "./payment/createDokuPayment";
-export { dokuWebhook } from "./doku/dokuWebhook";
+export { createBooking } from "./booking/create-booking";
+export { cancelBooking } from "./booking/cancel-booking";
+export { createDokuPayment } from "./doku/create-payment";
+export { dokuWebhook } from "./doku/webhook";
 export { manageCourt } from "./courts/manageCourt";
-export { cleanupExpiredHolds } from "./scheduler/cleanupExpiredHolds";
+export { cleanupExpiredHolds } from "./scheduler/cleanup-expired-holds";

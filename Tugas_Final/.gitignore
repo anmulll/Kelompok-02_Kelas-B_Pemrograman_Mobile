@@ -53,6 +53,7 @@ functions/.secret.local
 # Firebase Cloud Functions & Emulators
 functions/node_modules/
 functions/lib/
+functions/lib-test/
 .firebase/
 firebase-debug.log*
 firestore-debug.log*

@@ -9,15 +9,15 @@ export interface DokuSignatureInput {
   secretKey: string;
 }
 
+export function computeBodyDigest(rawBody: string): string {
+  return crypto.createHash("sha256").update(rawBody, "utf8").digest("base64");
+}
+
 /**
- * Pembentukan komponen Digest & HMAC-SHA256 sesuai spesifikasi DOKU Checkout API.
- * Pastikan header aktual dicocokkan kembali dengan versi API pada dashboard DOKU Sandbox.
+ * Pembentukan komponen Digest & HMAC-SHA256 sesuai spesifikasi resmi DOKU Checkout API.
  */
 export function generateDokuSignature(input: DokuSignatureInput): string {
-  const digest = crypto
-    .createHash("sha256")
-    .update(input.rawBody, "utf8")
-    .digest("base64");
+  const digest = computeBodyDigest(input.rawBody);
 
   const componentSignature = [
     `Client-Id:${input.clientId}`,

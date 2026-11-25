@@ -5,7 +5,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/court_provider.dart';
 import '../../../services/firebase_bootstrap.dart';
 import '../../history/screens/booking_history_screen.dart';
-import '../../invitations/screens/invitations_screen.dart';
+import '../../invitation/screens/invitations_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {

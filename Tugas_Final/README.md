@@ -21,23 +21,22 @@ Tugas_Final/
 ├── docs/                     # Ringkasan PRD, SRS, & Arsitektur Database CourtMate
 ├── functions/                # Backend tepercaya Firebase Cloud Functions (TypeScript)
 │   └── src/
-│       ├── booking/          # createBooking (atomic slot hold) & cancelBooking
-│       ├── payment/          # createDokuPayment (Secret Manager)
-│       ├── doku/             # signature HMAC-SHA256 & dokuWebhook (idempotent)
-│       ├── courts/           # manageCourt (khusus admin/pengelola)
-│       └── scheduler/        # cleanupExpiredHolds (pelepasan hold otomatis)
+│       ├── booking/          # create-booking.ts (atomic slot hold) & cancel-booking.ts
+│       ├── doku/             # create-payment.ts, signature.ts, & webhook.ts (idempotent)
+│       ├── courts/           # manageCourt.ts (khusus admin/pengelola)
+│       └── scheduler/        # cleanup-expired-holds.ts (pelepasan hold otomatis)
 ├── lib/
 │   ├── core/                 # Konstanta koleksi, tema Material 3, routing aplikasi
 │   ├── models/               # Model data Firestore (User, Court, Slot, Booking, Payment, dll.)
 │   ├── providers/            # State management Provider (Auth, Court, Booking)
-│   ├── services/             # Wrapper Firebase Auth, Firestore, Functions, & Geolocator
+│   ├── services/             # Wrapper Firebase Auth, Firestore, Booking, Payment, & Geolocator
 │   ├── features/             # Modul fitur terpisah agar tim 3 orang minim konflik Git
 │   │   ├── auth/             # Login & Registrasi Mahasiswa
 │   │   ├── explore/          # Pencarian, filter olahraga, & integrasi Google Maps/Places
 │   │   ├── courts/           # Detail lapangan & daftar slot per tanggal
 │   │   ├── booking/          # Pemilihan slot & konfirmasi hold
 │   │   ├── payment/          # Pemantauan status pembayaran DOKU
-│   │   ├── invitations/      # Undangan teman bermain
+│   │   ├── invitation/       # Undangan teman bermain
 │   │   ├── history/          # Riwayat & pengajuan pembatalan booking
 │   │   ├── profile/          # Profil pengguna & sesi
 │   │   └── admin/            # Dashboard pengelola lapangan, slot, & reservasi
@@ -99,9 +98,9 @@ Agar tidak terjadi konflik (*merge conflict*), setiap anggota mengerjakan folder
 
 | Anggota | Fokus Modul Fitur | Folder Kerja Utama |
 |---|---|---|
-| **Anggota 1** | Auth, Profil, Discovery & Google Maps/Places | `lib/features/auth/`, `lib/features/profile/`, `lib/features/explore/`, `lib/services/location_service.dart` |
-| **Anggota 2** | Detail Lapangan, Booking Hold, DOKU Payment & Webhook | `lib/features/courts/`, `lib/features/booking/`, `lib/features/payment/`, `functions/src/booking/`, `functions/src/payment/`, `functions/src/doku/` |
-| **Anggota 3** | Dashboard Admin/Pengelola, Riwayat, Undangan & Notifikasi | `lib/features/admin/`, `lib/features/history/`, `lib/features/invitations/`, `functions/src/courts/`, `functions/src/scheduler/` |
+| **Yusuf** | Auth, Profil, Otorisasi Role & Admin Management | `lib/features/auth/`, `lib/features/profile/`, `lib/features/admin/`, `functions/src/courts/`, `firestore.rules` |
+| **Caca** | Discovery, Google Maps/Places, Detail Lapangan & Filter | `lib/features/explore/`, `lib/features/courts/`, `lib/providers/court_provider.dart`, `lib/services/location_service.dart` |
+| **Anmul** | Booking Hold, DOKU Checkout, Webhook, Riwayat, Pembatalan & Undangan | `lib/features/booking/`, `lib/features/payment/`, `lib/features/history/`, `lib/features/invitation/`, `functions/src/booking/`, `functions/src/doku/`, `functions/src/scheduler/` |
 
 ### Konvensi Branch GitHub
 1. Selalu ambil perubahan terbaru dari `main`:

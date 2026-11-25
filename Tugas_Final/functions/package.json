@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
+    "test": "tsc -p tsconfig.test.json && node --test lib-test/test/anmul-module.test.js",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
     "deploy": "firebase deploy --only functions"
   },

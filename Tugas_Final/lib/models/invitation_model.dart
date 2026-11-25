@@ -22,7 +22,10 @@ class InvitationModel {
     required this.id,
     required this.bookingId,
     required this.senderId,
+    this.senderName,
     required this.recipientIdentifier,
+    this.courtName,
+    this.scheduleLabel,
     this.status = InvitationStatus.pending,
     required this.createdAt,
   });
@@ -30,9 +33,26 @@ class InvitationModel {
   final String id;
   final String bookingId;
   final String senderId;
+  final String? senderName;
   final String recipientIdentifier;
+  final String? courtName;
+  final String? scheduleLabel;
   final InvitationStatus status;
   final DateTime createdAt;
+
+  InvitationModel copyWith({InvitationStatus? status}) {
+    return InvitationModel(
+      id: id,
+      bookingId: bookingId,
+      senderId: senderId,
+      senderName: senderName,
+      recipientIdentifier: recipientIdentifier,
+      courtName: courtName,
+      scheduleLabel: scheduleLabel,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
 
   factory InvitationModel.fromMap(
     Map<String, dynamic> map, {
@@ -42,7 +62,10 @@ class InvitationModel {
       id: id,
       bookingId: (map['bookingId'] as String?) ?? '',
       senderId: (map['senderId'] as String?) ?? '',
+      senderName: map['senderName'] as String?,
       recipientIdentifier: (map['recipientIdentifier'] as String?) ?? '',
+      courtName: map['courtName'] as String?,
+      scheduleLabel: map['scheduleLabel'] as String?,
       status: InvitationStatus.fromString(map['status'] as String?),
       createdAt: _parseDateTime(map['createdAt']),
     );
@@ -75,6 +98,19 @@ class NotificationModel {
   final bool isRead;
   final DateTime createdAt;
   final String? relatedId;
+
+  NotificationModel copyWith({bool? isRead}) {
+    return NotificationModel(
+      id: id,
+      userId: userId,
+      title: title,
+      body: body,
+      type: type,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+      relatedId: relatedId,
+    );
+  }
 
   factory NotificationModel.fromMap(
     Map<String, dynamic> map, {
