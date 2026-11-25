@@ -21,6 +21,7 @@ class UserModel {
     required this.name,
     required this.email,
     this.phone,
+    this.nimInstitution,
     this.role = UserRole.student,
     this.photoUrl,
     this.isActive = true,
@@ -32,6 +33,7 @@ class UserModel {
   final String name;
   final String email;
   final String? phone;
+  final String? nimInstitution;
   final UserRole role;
   final String? photoUrl;
   final bool isActive;
@@ -46,6 +48,7 @@ class UserModel {
       name: (map['name'] as String?) ?? '',
       email: (map['email'] as String?) ?? '',
       phone: map['phone'] as String?,
+      nimInstitution: map['nimInstitution'] as String?,
       role: UserRole.fromString(map['role'] as String?),
       photoUrl: map['photoUrl'] as String?,
       isActive: (map['isActive'] as bool?) ?? true,
@@ -54,11 +57,11 @@ class UserModel {
     );
   }
 
-  /// Catatan keamanan (BR-002): role tidak boleh diubah ke admin dari sisi klien.
   Map<String, dynamic> toClientProfileUpdateMap() {
     return {
       'name': name,
       'phone': phone,
+      'nimInstitution': nimInstitution,
       'photoUrl': photoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     };

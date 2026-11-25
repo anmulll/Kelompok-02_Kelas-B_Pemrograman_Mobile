@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/firebase_bootstrap.dart';
@@ -19,10 +20,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     if (!FirebaseBootstrap.isInitialized) {
       _errorMessage = FirebaseBootstrap.configurationHint;
       notifyListeners();
@@ -71,6 +69,40 @@ class AuthProvider extends ChangeNotifier {
     } catch (error) {
       _errorMessage = 'Registrasi gagal diproses. Silakan coba lagi.';
       debugPrint('AuthProvider.registerStudent error: $error');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> updateProfile({
+    required String name,
+    String? phone,
+    String? nimInstitution,
+  }) async {
+    final user = _currentUser;
+
+    if (user == null) {
+      _errorMessage = 'Pengguna belum login.';
+      notifyListeners();
+      return false;
+    }
+
+    _setLoading(true);
+
+    try {
+      _currentUser = await _authService.updateUserProfile(
+        uid: user.uid,
+        name: name,
+        phone: phone,
+        nimInstitution: nimInstitution,
+      );
+
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = 'Gagal memperbarui profil. Silakan coba lagi.';
+      debugPrint('AuthProvider.updateProfile error: $error');
       return false;
     } finally {
       _setLoading(false);

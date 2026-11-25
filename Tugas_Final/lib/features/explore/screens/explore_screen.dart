@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/court_model.dart';
@@ -36,6 +37,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('CourtMate'),
         actions: [
           if (auth.isAdmin)
@@ -60,7 +62,8 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+        onDestinationSelected: (index) =>
+            setState(() => _selectedIndex = index),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.explore_outlined),
@@ -121,11 +124,7 @@ class _ExploreTabViewState extends State<ExploreTabView> {
   }
 
   void _openCourtDetail(CourtModel court) {
-    Navigator.pushNamed(
-      context,
-      AppRoutes.courtDetail,
-      arguments: court,
-    );
+    Navigator.pushNamed(context, AppRoutes.courtDetail, arguments: court);
   }
 
   @override
@@ -398,10 +397,10 @@ class _LocationFilterBar extends StatelessWidget {
                       provider.isRequestingLocation
                           ? 'Mencari lokasi...'
                           : provider.hasUserLocation
-                              ? 'Lokasi aktif · Urut terdekat'
-                              : denied
-                                  ? 'Izin lokasi ditolak · Pencarian teks aktif'
-                                  : 'Aktifkan lokasi untuk urutkan jarak',
+                          ? 'Lokasi aktif · Urut terdekat'
+                          : denied
+                          ? 'Izin lokasi ditolak · Pencarian teks aktif'
+                          : 'Aktifkan lokasi untuk urutkan jarak',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -460,10 +459,7 @@ class _LocationFilterBar extends StatelessWidget {
 }
 
 class _PlacesFallbackBanner extends StatelessWidget {
-  const _PlacesFallbackBanner({
-    required this.message,
-    required this.onRetry,
-  });
+  const _PlacesFallbackBanner({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -479,18 +475,22 @@ class _PlacesFallbackBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.error),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: AppColors.error,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Coba Lagi'),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('Coba Lagi')),
         ],
       ),
     );
@@ -519,13 +519,13 @@ class _ErrorStateBox extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 14),
-          FilledButton(
-            onPressed: onRetry,
-            child: const Text('Coba Lagi'),
-          ),
+          FilledButton(onPressed: onRetry, child: const Text('Coba Lagi')),
         ],
       ),
     );
@@ -548,7 +548,11 @@ class _EmptyStateBox extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.search_off, size: 36, color: AppColors.textSecondary),
+          const Icon(
+            Icons.search_off,
+            size: 36,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 10),
           const Text(
             'Tidak ada lapangan yang sesuai pencarian',

@@ -1,13 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../core/constants/app_constants.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  AuthService({
-    FirebaseAuth? firebaseAuth,
-    FirebaseFirestore? firestore,
-  }) {
+  AuthService({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore}) {
     _firebaseAuth = firebaseAuth;
     _firestore = firestore;
   }
@@ -81,6 +79,49 @@ class AuthService {
     final data = snapshot.data();
     if (data == null) return null;
     return UserModel.fromMap(data, docId: snapshot.id);
+  }
+
+  Future<UserModel> updateUserProfile({
+    required String uid,
+    required String name,
+    String? phone,
+    String? nimInstitution,
+  }) async {
+    final currentUser = _auth.currentUser;
+
+    if (currentUser == null || currentUser.uid != uid) {
+      throw Exception('Pengguna tidak terautentikasi.');
+    }
+
+    final updatedProfile = UserModel(
+      uid: uid,
+      name: name.trim(),
+      email: currentUser.email ?? '',
+      phone: phone?.trim().isEmpty == true ? null : phone?.trim(),
+      nimInstitution: nimInstitution?.trim().isEmpty == true
+          ? null
+          : nimInstitution?.trim(),
+      role: UserRole.student,
+      photoUrl: currentUser.photoURL,
+      isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await _db
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .update(updatedProfile.toClientProfileUpdateMap());
+
+    await currentUser.updateDisplayName(name.trim());
+
+    final existingProfile = await fetchUserProfile(uid);
+
+    if (existingProfile == null) {
+      throw Exception('Profil tidak ditemukan.');
+    }
+
+    return existingProfile;
   }
 
   Future<void> signOut() => _auth.signOut();
