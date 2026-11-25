@@ -14,14 +14,17 @@ import '../widgets/court_card.dart';
 import '../widgets/sport_category_list.dart';
 
 class HomeShellScreen extends StatefulWidget {
-  const HomeShellScreen({super.key});
+  const HomeShellScreen({super.key, this.initialTabIndex = 0});
+
+  final int initialTabIndex;
 
   @override
   State<HomeShellScreen> createState() => _HomeShellScreenState();
 }
 
 class _HomeShellScreenState extends State<HomeShellScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+  bool _didInitRouteTab = false;
 
   static const List<Widget> _pages = [
     ExploreTabView(),
@@ -29,6 +32,24 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     InvitationsScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTabIndex.clamp(0, _pages.length - 1);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInitRouteTab) {
+      _didInitRouteTab = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is int && args >= 0 && args < _pages.length) {
+        _selectedIndex = args;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

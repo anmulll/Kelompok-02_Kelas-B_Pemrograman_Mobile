@@ -154,7 +154,8 @@ void main() {
         paymentService: PaymentService(urlLauncher: (_) async => true),
         useLocalSandbox: true,
       );
-      final fixedMorning = DateTime(2026, 11, 25, 7, 0);
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final fixedMorning = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 7, 0);
 
       await tester.pumpWidget(
         MultiProvider(
@@ -189,6 +190,69 @@ void main() {
       expect(find.text('Ringkasan Booking'), findsOneWidget);
       expect(find.text('Pilih Jadwal & Slot'), findsNothing);
       expect(find.text('Bayar Sekarang via DOKU'), findsOneWidget);
+
+      bookingProvider.dispose();
+    },
+  );
+
+  testWidgets(
+    'Tombol Ke Booking Saya di PaymentScreen langsung membuka tab Booking Saya dan membersihkan stack',
+    (WidgetTester tester) async {
+      final bookingProvider = BookingProvider(
+        paymentService: PaymentService(urlLauncher: (_) async => true),
+        useLocalSandbox: true,
+      );
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final fixedMorning = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 7, 0);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => CourtProvider()),
+            ChangeNotifierProvider.value(value: bookingProvider),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            initialRoute: AppRoutes.slotSelection,
+            routes: {
+              AppRoutes.home: AppRoutes.routes[AppRoutes.home]!,
+              AppRoutes.slotSelection: (_) => SlotSelectionScreen(
+                court: CourtRepository.demoCourts.first,
+                referenceNow: fixedMorning,
+              ),
+              AppRoutes.booking: AppRoutes.routes[AppRoutes.booking]!,
+              AppRoutes.payment: AppRoutes.routes[AppRoutes.payment]!,
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('10:00–11:00'));
+      await tester.pump();
+      await tester.tap(find.text('Lanjut Booking'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bayar Sekarang via DOKU'));
+      await tester.pumpAndSettle();
+      expect(find.text('Status Pembayaran'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('Ke Booking Saya'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Ke Booking Saya'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BookingHistoryScreen), findsOneWidget);
+      expect(find.text('Booking Saya'), findsOneWidget);
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        1,
+      );
+      expect(find.byType(SlotSelectionScreen), findsNothing);
 
       bookingProvider.dispose();
     },

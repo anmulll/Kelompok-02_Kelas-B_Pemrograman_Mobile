@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../models/booking_model.dart';
 import '../../../models/payment_model.dart';
@@ -47,6 +48,15 @@ class _PaymentScreenState extends State<PaymentScreen>
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _goToMyBookings() {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.home,
+      (route) => false,
+      arguments: 1,
+    );
   }
 
   String _formatRemainingHold(DateTime? expiresAt) {
@@ -305,7 +315,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                     ],
                     StitchSecondaryButton(
                       label: 'Ke Booking Saya',
-                      onPressed: () => Navigator.maybePop(context),
+                      onPressed: _goToMyBookings,
                     ),
                   ],
                 ),
