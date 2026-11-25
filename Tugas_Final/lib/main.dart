@@ -28,7 +28,7 @@ class CourtMateApp extends StatelessWidget {
       child: MaterialApp(
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
+        theme: AppTheme.darkTheme,
         initialRoute: AppRoutes.home,
         routes: AppRoutes.routes,
       ),

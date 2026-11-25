@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../models/court_model.dart';
 import '../../../models/slot_model.dart';
 import '../../../providers/booking_provider.dart';
 import '../widgets/stitch_ui.dart';
@@ -28,6 +29,8 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   bool _didInitArgs = false;
+  CourtModel? _preselectedCourt;
+  SlotModel? _preselectedSlot;
 
   @override
   void didChangeDependencies() {
@@ -36,6 +39,23 @@ class _BookingScreenState extends State<BookingScreen> {
     _didInitArgs = true;
 
     final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final court = args['court'];
+      final slot = args['slot'];
+      if (court is CourtModel && slot is SlotModel) {
+        _preselectedCourt = court;
+        _preselectedSlot = slot;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          context.read<BookingProvider>().applyPreselectedCourtAndSlot(
+            court: court,
+            slot: slot,
+          );
+        });
+        return;
+      }
+    }
+
     if (args is BookingScreenArgs) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -56,6 +76,15 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Jika dipanggil dari SlotSelectionScreen (modul Caca) dengan membawa court & slot,
+    // langsung tampilkan Ringkasan Booking agar pengguna tidak memilih jadwal 2 kali.
+    if (_preselectedCourt != null && _preselectedSlot != null) {
+      return BookingSummaryScreen(
+        preselectedCourt: _preselectedCourt,
+        preselectedSlot: _preselectedSlot,
+      );
+    }
+
     final provider = context.watch<BookingProvider>();
     final selectedSlot = provider.selectedSlot;
     final today = DateTime.now();

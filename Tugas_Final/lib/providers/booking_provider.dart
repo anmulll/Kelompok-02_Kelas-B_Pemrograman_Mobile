@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/currency_formatter.dart';
 import '../models/booking_model.dart';
+import '../models/court_model.dart';
 import '../models/invitation_model.dart';
 import '../models/payment_model.dart';
 import '../models/slot_model.dart';
@@ -38,6 +39,7 @@ class BookingProvider extends ChangeNotifier {
   String _selectedCourtName = 'GOR Kampus Arena';
   DateTime _selectedDate = _stripTime(DateTime.now());
   String? _selectedSlotId;
+  SlotModel? _preselectedSlot;
   BookingStatus? _historyFilter;
 
   List<SlotModel> _slots = [];
@@ -87,6 +89,9 @@ class BookingProvider extends ChangeNotifier {
 
   SlotModel? get selectedSlot {
     if (_selectedSlotId == null) return null;
+    if (_preselectedSlot != null && _preselectedSlot!.id == _selectedSlotId) {
+      return _preselectedSlot;
+    }
     for (final s in _slots) {
       if (s.id == _selectedSlotId) return s;
     }
@@ -226,6 +231,21 @@ class BookingProvider extends ChangeNotifier {
     });
   }
 
+  /// Dipanggil saat membuka `/booking` dari `SlotSelectionScreen` milik Caca
+  /// dengan membawa `court` dan `slot` yang sudah dipilih agar tidak memilih 2x.
+  void applyPreselectedCourtAndSlot({
+    required CourtModel court,
+    required SlotModel slot,
+  }) {
+    _selectedCourtId = court.id;
+    _selectedCourtName = court.name;
+    _selectedDate = _stripTime(slot.startAt);
+    _preselectedSlot = slot;
+    _selectedSlotId = slot.id;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   /// Dipanggil saat membuka halaman pemilihan slot dari modul Caca (`courtId`, `courtName`).
   void setCourtContext({
     required String courtId,
@@ -237,6 +257,7 @@ class BookingProvider extends ChangeNotifier {
     if (date != null) {
       _selectedDate = _stripTime(date);
     }
+    _preselectedSlot = null;
     _selectedSlotId = null;
     _errorMessage = null;
     _loadSlots();

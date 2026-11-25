@@ -3,18 +3,36 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../models/court_model.dart';
+import '../../../models/slot_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/booking_provider.dart';
 import '../widgets/stitch_ui.dart';
 
 /// Layar 2 Stitch: `CourtMate — Ringkasan Booking` (`node_6788890688285337913`)
 class BookingSummaryScreen extends StatelessWidget {
-  const BookingSummaryScreen({super.key});
+  const BookingSummaryScreen({
+    super.key,
+    this.preselectedCourt,
+    this.preselectedSlot,
+  });
+
+  final CourtModel? preselectedCourt;
+  final SlotModel? preselectedSlot;
 
   Future<void> _confirmHoldAndPay(BuildContext context) async {
     final bookingProvider = context.read<BookingProvider>();
     final authProvider = context.read<AuthProvider>();
     final uid = authProvider.currentUser?.uid ?? 'mhs_demo';
+
+    if (preselectedCourt != null &&
+        preselectedSlot != null &&
+        bookingProvider.selectedSlotId != preselectedSlot!.id) {
+      bookingProvider.applyPreselectedCourtAndSlot(
+        court: preselectedCourt!,
+        slot: preselectedSlot!,
+      );
+    }
 
     final session = await bookingProvider.createHoldAndPayment(userId: uid);
     if (session != null && context.mounted) {
@@ -25,7 +43,14 @@ class BookingSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BookingProvider>();
-    final slot = provider.selectedSlot;
+    final slot = preselectedSlot ?? provider.selectedSlot;
+    final courtName = preselectedCourt?.name ?? provider.selectedCourtName;
+    final courtAddress =
+        preselectedCourt?.addressDisplay ?? 'Mitra Resmi CourtMate';
+    final sportBadge =
+        (preselectedCourt != null && preselectedCourt!.sportTypes.isNotEmpty)
+        ? preselectedCourt!.sportTypes.join(' · ')
+        : 'Terverifikasi';
 
     if (slot == null) {
       return StitchScope(
@@ -104,17 +129,17 @@ class BookingSummaryScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('DETAIL PESANAN', style: StitchTokens.labelSm),
-                              Text('Terverifikasi', style: StitchTokens.labelSm),
+                              Text(sportBadge, style: StitchTokens.labelSm),
                             ],
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            provider.selectedCourtName,
+                            courtName,
                             style: StitchTokens.h2,
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Mitra Resmi CourtMate',
+                            courtAddress,
                             style: StitchTokens.bodyMd.copyWith(
                               color: StitchTokens.textSecondary,
                             ),

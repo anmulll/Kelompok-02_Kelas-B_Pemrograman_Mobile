@@ -1,10 +1,12 @@
 import 'package:courtmate/core/routes/app_routes.dart';
 import 'package:courtmate/core/theme/app_theme.dart';
+import 'package:courtmate/features/courts/screens/slot_selection_screen.dart';
 import 'package:courtmate/features/history/screens/booking_history_screen.dart';
 import 'package:courtmate/features/invitation/screens/invitations_screen.dart';
 import 'package:courtmate/providers/auth_provider.dart';
 import 'package:courtmate/providers/booking_provider.dart';
 import 'package:courtmate/providers/court_provider.dart';
+import 'package:courtmate/services/court_repository.dart';
 import 'package:courtmate/services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -140,6 +142,53 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bookingProvider.unreadNotificationCount, 0);
+
+      bookingProvider.dispose();
+    },
+  );
+
+  testWidgets(
+    'Integrasi Caca -> Anmul: pilih slot 1x di SlotSelectionScreen langsung masuk Ringkasan Booking (tidak 2x pilih)',
+    (WidgetTester tester) async {
+      final bookingProvider = BookingProvider(
+        paymentService: PaymentService(urlLauncher: (_) async => true),
+        useLocalSandbox: true,
+      );
+      final fixedMorning = DateTime(2026, 11, 25, 7, 0);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => CourtProvider()),
+            ChangeNotifierProvider.value(value: bookingProvider),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: SlotSelectionScreen(
+              court: CourtRepository.demoCourts.first,
+              referenceNow: fixedMorning,
+            ),
+            routes: {
+              AppRoutes.booking: AppRoutes.routes[AppRoutes.booking]!,
+              AppRoutes.payment: AppRoutes.routes[AppRoutes.payment]!,
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Pilih 1 slot tersedia pada layar Caca
+      await tester.tap(find.text('10:00–11:00'));
+      await tester.pump();
+
+      // Tekan Lanjut Booking -> WAJIB langsung ke Ringkasan Booking, bukan Pilih Jadwal lagi
+      await tester.tap(find.text('Lanjut Booking'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ringkasan Booking'), findsOneWidget);
+      expect(find.text('Pilih Jadwal & Slot'), findsNothing);
+      expect(find.text('Bayar Sekarang via DOKU'), findsOneWidget);
 
       bookingProvider.dispose();
     },
