@@ -594,6 +594,13 @@ class BookingProvider extends ChangeNotifier {
     await _bookingService.markNotificationAsRead(notificationId);
   }
 
+  Future<void> markAllNotificationsRead() async {
+    final unread = _notifications.where((n) => !n.isRead).toList();
+    for (final item in unread) {
+      await markNotificationRead(item.id);
+    }
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();

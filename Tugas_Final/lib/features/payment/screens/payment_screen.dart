@@ -5,8 +5,9 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../models/booking_model.dart';
 import '../../../models/payment_model.dart';
 import '../../../providers/booking_provider.dart';
-import '../../../widgets/status_badge.dart';
+import '../../booking/widgets/stitch_ui.dart';
 
+/// Layar 3 Stitch: `CourtMate — Status Pembayaran` (`node_2014579419022524448`)
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
 
@@ -37,7 +38,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _formatRemainingHold(DateTime? expiresAt) {
     if (expiresAt == null) return '--:--';
     final diff = expiresAt.difference(_now);
-    if (diff.isNegative) return '00:00 (Kedaluwarsa)';
+    if (diff.isNegative) return '00:00 (Habis)';
     final mins = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
     final secs = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$mins:$secs';
@@ -50,229 +51,352 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final session = provider.activePaymentSession;
 
     if (booking == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Pembayaran Reservasi')),
-        body: const Center(
-          child: Text('Tidak ada data booking aktif yang dipilih.'),
+      return StitchScope(
+        child: Scaffold(
+          backgroundColor: StitchTokens.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                StitchHeaderBar(
+                  title: 'Status Pembayaran',
+                  leadingIcon: Icons.close,
+                  onLeadingTap: () => Navigator.maybePop(context),
+                ),
+                const Expanded(
+                  child: Center(child: Text('Tidak ada data pembayaran aktif.')),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
 
     final isPending = booking.bookingStatus == BookingStatus.pendingPayment;
+    final (icon, accentColor, heading, description) = _statusPresentation(
+      booking,
+    );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Pembayaran DOKU Checkout')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Status Reservasi',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      StatusBadge(status: booking.bookingStatus),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  _InfoRow(
-                    label: 'Lapangan',
-                    value: booking.courtName ?? booking.courtId,
-                  ),
-                  _InfoRow(
-                    label: 'Jadwal',
-                    value:
-                        '${CurrencyFormatter.formatFullDate(booking.startAt)} • '
-                        '${CurrencyFormatter.formatSlotTimeRange(booking.startAt, booking.endAt)}',
-                  ),
-                  _InfoRow(
-                    label: 'Order ID DOKU',
-                    value: session?.providerOrderId ?? booking.paymentId ?? '-',
-                  ),
-                  _InfoRow(
-                    label: 'Total Tagihan',
-                    value: CurrencyFormatter.formatIdr(booking.amount),
-                    isBold: true,
-                  ),
-                  if (isPending) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
+    return StitchScope(
+      child: Scaffold(
+        backgroundColor: StitchTokens.background,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              StitchHeaderBar(
+                title: 'Status Pembayaran',
+                leadingIcon: Icons.close,
+                onLeadingTap: () => Navigator.maybePop(context),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Kartu Utama Status Verifikasi (Stitch Hero Card)
+                    StitchCard(
+                      child: Column(
                         children: [
-                          const Icon(Icons.timer_outlined),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Batas waktu hold slot: ${_formatRemainingHold(booking.holdExpiresAt ?? session?.expiresAt)}',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: booking.bookingStatus ==
+                                      BookingStatus.confirmed
+                                  ? StitchTokens.primary.withValues(alpha: 0.15)
+                                  : StitchTokens.surfaceElevated,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: accentColor),
+                            ),
+                            child: Icon(icon, size: 28, color: accentColor),
+                          ),
+                          const SizedBox(height: 12),
+                          StitchBookingStatusBadge(
+                            status: booking.bookingStatus,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            heading,
+                            textAlign: TextAlign.center,
+                            style: StitchTokens.h2,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            description,
+                            textAlign: TextAlign.center,
+                            style: StitchTokens.bodyMd.copyWith(
+                              color: StitchTokens.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-          // Peringatan Rekonsiliasi (Bab 10) bila pembayaran masuk terlambat
-          if (booking.reconciliationRequired)
-            Card(
-              color: Colors.amber.shade100,
-              child: const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'Pembayaran Anda diterima setelah masa hold habis ketika slot sudah terisi. '
-                  'Transaksi ini masuk antrean rekonsiliasi manual pengelola.',
-                ),
-              ),
-            ),
+                    // Banner Rekonsiliasi Terlambat (Bab 10)
+                    if (booking.reconciliationRequired) ...[
+                      StitchCard(
+                        padding: const EdgeInsets.all(14),
+                        backgroundColor: StitchTokens.surfaceElevated,
+                        borderColor: StitchTokens.warning,
+                        child: Text(
+                          'Pembayaran diterima setelah masa hold habis dan slot sudah terisi. '
+                          'Transaksi masuk antrean rekonsiliasi manual pengelola.',
+                          style: StitchTokens.labelSm.copyWith(
+                            color: StitchTokens.warning,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
-          // Proteksi AT-11: Redirect dari browser BUKAN bukti lunas!
-          if (provider.hasOpenedCheckoutBrowser && isPending) ...[
-            Card(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              child: const Padding(
-                padding: EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.shield_outlined),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Halaman pembayaran telah dibuka. Sesuai aturan keamanan CourtMate (AT-11), '
-                        'kembalinya aplikasi dari browser tidak mengubah status menjadi Terkonfirmasi. '
-                        'Status diperbarui otomatis setelah backend memverifikasi webhook DOKU.',
+                    // Info Proteksi AT-11 saat kembali dari browser
+                    if (provider.hasOpenedCheckoutBrowser && isPending) ...[
+                      StitchCard(
+                        padding: const EdgeInsets.all(14),
+                        backgroundColor: StitchTokens.surfaceElevated,
+                        borderColor: StitchTokens.tertiary,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.shield_outlined,
+                              size: 18,
+                              color: StitchTokens.tertiary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Proteksi AT-11 aktif: kembali dari halaman browser tidak mengubah status menjadi Terkonfirmasi sebelum webhook DOKU diverifikasi server.',
+                                style: StitchTokens.labelSm.copyWith(
+                                  color: StitchTokens.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Kartu Detail Transaksi
+                    StitchCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('DETAIL TRANSAKSI', style: StitchTokens.labelSm),
+                          const SizedBox(height: 8),
+                          _TxRow(
+                            label: 'ID Booking',
+                            value:
+                                session?.providerOrderId ?? booking.id,
+                          ),
+                          const Divider(height: 1, color: StitchTokens.border),
+                          _TxRow(
+                            label: 'Lapangan',
+                            value: booking.courtName ?? booking.courtId,
+                          ),
+                          const Divider(height: 1, color: StitchTokens.border),
+                          _TxRow(
+                            label: 'Nominal',
+                            value: CurrencyFormatter.formatIdr(booking.amount),
+                          ),
+                          const Divider(height: 1, color: StitchTokens.border),
+                          const _TxRow(
+                            label: 'Metode',
+                            value: 'DOKU Checkout',
+                          ),
+                          if (isPending) ...[
+                            const Divider(
+                              height: 1,
+                              color: StitchTokens.border,
+                            ),
+                            _TxRow(
+                              label: 'Sisa Kunci Slot',
+                              value: _formatRemainingHold(
+                                booking.holdExpiresAt ?? session?.expiresAt,
+                              ),
+                              valueColor: StitchTokens.tertiary,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
+
+                    // Chip simulasi status di mode sandbox lokal (persis desain Stitch)
+                    if (provider.isUsingLocalSandbox) ...[
+                      const SizedBox(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _SandboxStateChip(
+                            label: 'Simulasi Terkonfirmasi',
+                            color: StitchTokens.primary,
+                            onTap: () =>
+                                provider.simulateServerWebhookInSandbox(
+                                  bookingId: booking.id,
+                                  webhookPaymentStatus: PaymentStatus.paid,
+                                ),
+                          ),
+                          _SandboxStateChip(
+                            label: 'Simulasi Gagal',
+                            color: StitchTokens.error,
+                            onTap: () =>
+                                provider.simulateServerWebhookInSandbox(
+                                  bookingId: booking.id,
+                                  webhookPaymentStatus: PaymentStatus.failed,
+                                ),
+                          ),
+                          _SandboxStateChip(
+                            label: 'Simulasi Kedaluwarsa',
+                            color: StitchTokens.textSecondary,
+                            onTap: () =>
+                                provider.simulateServerWebhookInSandbox(
+                                  bookingId: booking.id,
+                                  webhookPaymentStatus: PaymentStatus.expired,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
 
-          if (isPending) ...[
-            FilledButton.icon(
-              onPressed: () => provider.openActiveCheckoutUrl(),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('Buka Halaman DOKU Checkout'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cek Nanti di Riwayat Booking'),
-            ),
-          ] else ...[
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.check),
-              label: const Text('Selesai & Kembali'),
-            ),
-          ],
-
-          // Panel simulasi khusus saat mode sandbox lokal agar mudah didemokan tanpa cloud
-          if (provider.isUsingLocalSandbox && isPending) ...[
-            const SizedBox(height: 24),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
+              // Footer Tombol Aksi
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Simulasi Webhook Server (Mode Pratinjau Lokal)',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    if (isPending) ...[
+                      StitchPrimaryButton(
+                        label: 'Buka Halaman DOKU Checkout',
+                        icon: Icons.open_in_new,
+                        onPressed: () => provider.openActiveCheckoutUrl(),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Gunakan tombol ini saat demo offline untuk menyimulasikan notifikasi server-to-server DOKU:',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              provider.simulateServerWebhookInSandbox(
-                                bookingId: booking.id,
-                                webhookPaymentStatus: PaymentStatus.paid,
-                              ),
-                          icon: const Icon(Icons.verified_outlined),
-                          label: const Text('Webhook SUCCESS'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              provider.simulateServerWebhookInSandbox(
-                                bookingId: booking.id,
-                                webhookPaymentStatus: PaymentStatus.expired,
-                              ),
-                          icon: const Icon(Icons.timer_off_outlined),
-                          label: const Text('Webhook EXPIRED'),
-                        ),
-                      ],
+                      const SizedBox(height: 10),
+                    ],
+                    StitchSecondaryButton(
+                      label: 'Ke Booking Saya',
+                      onPressed: () => Navigator.maybePop(context),
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  (IconData, Color, String, String) _statusPresentation(BookingModel booking) {
+    return switch (booking.bookingStatus) {
+      BookingStatus.pendingPayment => (
+        Icons.hourglass_top_rounded,
+        StitchTokens.tertiary,
+        'Menunggu Verifikasi Pembayaran',
+        'Status booking akan otomatis terkonfirmasi setelah notifikasi pembayaran dari DOKU diverifikasi oleh sistem, bukan sekadar kembali dari halaman bayar.',
+      ),
+      BookingStatus.confirmed => (
+        Icons.check_circle_outline_rounded,
+        StitchTokens.primary,
+        'Pembayaran Terverifikasi',
+        'Notifikasi DOKU telah diverifikasi. Slot lapangan Anda pada ${CurrencyFormatter.formatSlotTimeRange(booking.startAt, booking.endAt)} resmi terkonfirmasi.',
+      ),
+      BookingStatus.paymentFailed => (
+        Icons.error_outline_rounded,
+        StitchTokens.error,
+        'Pembayaran Gagal',
+        'Transaksi tidak berhasil diproses oleh DOKU. Silakan ulangi pemesanan atau pilih metode pembayaran lain.',
+      ),
+      BookingStatus.expired => (
+        Icons.timer_off_outlined,
+        StitchTokens.textSecondary,
+        'Waktu Pembayaran Habis',
+        'Batas waktu kunci slot telah berakhir sebelum pembayaran terverifikasi. Silakan pilih ulang jadwal Anda.',
+      ),
+      BookingStatus.cancelled => (
+        Icons.cancel_outlined,
+        StitchTokens.error,
+        'Reservasi Dibatalkan',
+        'Reservasi ini telah dibatalkan sesuai kebijakan pembatalan CourtMate.',
+      ),
+      BookingStatus.completed => (
+        Icons.verified_outlined,
+        StitchTokens.secondary,
+        'Jadwal Selesai',
+        'Sesi bermain pada reservasi ini telah selesai dilaksanakan.',
+      ),
+    };
+  }
+}
+
+class _TxRow extends StatelessWidget {
+  const _TxRow({
+    required this.label,
+    required this.value,
+    this.valueColor = StitchTokens.textPrimary,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: StitchTokens.bodyMd.copyWith(
+              color: StitchTokens.textSecondary,
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: StitchTokens.bodyStrong.copyWith(color: valueColor),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
+class _SandboxStateChip extends StatelessWidget {
+  const _SandboxStateChip({
     required this.label,
-    required this.value,
-    this.isBold = false,
+    required this.color,
+    required this.onTap,
   });
 
   final String label;
-  final String value;
-  final bool isBold;
+  final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(StitchTokens.radiusPill),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: StitchTokens.surfaceElevated,
+          borderRadius: BorderRadius.circular(StitchTokens.radiusPill),
+          border: Border.all(color: color),
+        ),
+        child: Text(label, style: StitchTokens.labelSm.copyWith(color: color)),
       ),
     );
   }
