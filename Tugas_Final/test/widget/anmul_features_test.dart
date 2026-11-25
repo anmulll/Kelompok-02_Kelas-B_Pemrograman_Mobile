@@ -125,10 +125,26 @@ void main() {
 
       // Layar 7 Stitch: Undangan Bermain
       expect(find.text('Undangan Bermain'), findsOneWidget);
+      expect(find.text('Menunggu (1)'), findsOneWidget);
+      expect(find.text('Diterima (0)'), findsOneWidget);
       expect(find.text('Terima Undangan'), findsOneWidget);
 
       await tester.tap(find.text('Terima Undangan'));
       await tester.pumpAndSettle();
+
+      expect(find.text('Menunggu (0)'), findsOneWidget);
+      expect(find.text('Diterima (1)'), findsOneWidget);
+
+      // Kirim undangan keluar -> harus langsung ikut menambah count Menunggu
+      await bookingProvider.sendInvitation(
+        bookingId: bookingProvider.invitableBookings.first.id,
+        recipientEmail: 'teman@kampus.ac.id',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Menunggu (1)'), findsOneWidget);
+      expect(find.text('Mengundang'), findsOneWidget);
+      expect(find.text('teman@kampus.ac.id'), findsOneWidget);
 
       // Buka Layar 6 Stitch: Notifikasi melalui ikon lonceng
       await tester.tap(find.byIcon(Icons.notifications_outlined));

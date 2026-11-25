@@ -55,12 +55,30 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
+  int _countForStatus(BookingProvider provider, InvitationStatus status) {
+    final ids = <String>{};
+    for (final inv in provider.receivedInvitations) {
+      if (inv.status == status) ids.add(inv.id);
+    }
+    for (final inv in provider.sentInvitations) {
+      if (inv.status == status) ids.add(inv.id);
+    }
+    return ids.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BookingProvider>();
     final filteredIncoming = provider.receivedInvitations
         .where((item) => item.status == _activeTab)
         .toList();
+    final incomingIds = filteredIncoming.map((item) => item.id).toSet();
+    final filteredSent = provider.sentInvitations
+        .where(
+          (item) => item.status == _activeTab && !incomingIds.contains(item.id),
+        )
+        .toList();
+    final totalActiveCount = filteredIncoming.length + filteredSent.length;
     final invitable = provider.invitableBookings;
     final currentBookingId =
         _selectedBookingId ?? (invitable.isNotEmpty ? invitable.first.id : null);
@@ -95,7 +113,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                       ),
                     ),
                     Text(
-                      '${filteredIncoming.length} ${_tabWord(_activeTab)}',
+                      '$totalActiveCount ${_tabWord(_activeTab)}',
                       style: StitchTokens.labelSm,
                     ),
                     const SizedBox(width: 10),
@@ -153,6 +171,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                     children: tabs.map((entry) {
                       final (label, status) = entry;
                       final selected = _activeTab == status;
+                      final tabCount = _countForStatus(provider, status);
                       return Expanded(
                         child: InkWell(
                           onTap: () => setState(() => _activeTab = status),
@@ -171,7 +190,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                               ),
                             ),
                             child: Text(
-                              label,
+                              '$label ($tabCount)',
                               style: StitchTokens.labelSm.copyWith(
                                 color: selected
                                     ? StitchTokens.onPrimary
@@ -192,17 +211,17 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                if (filteredIncoming.isEmpty)
+                if (filteredIncoming.isEmpty && filteredSent.isEmpty)
                   StitchCard(
                     child: Text(
-                      'Tidak ada undangan masuk berstatus ${_tabWord(_activeTab)}.',
+                      'Tidak ada undangan berstatus ${_tabWord(_activeTab)}.',
                       textAlign: TextAlign.center,
                       style: StitchTokens.bodyMd.copyWith(
                         color: StitchTokens.textSecondary,
                       ),
                     ),
                   )
-                else
+                else ...[
                   ...filteredIncoming.map((inv) {
                     final senderLabel = inv.senderName ?? inv.senderId;
                     return Padding(
@@ -320,6 +339,97 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                       ),
                     );
                   }),
+                  ...filteredSent.map((inv) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: StitchCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: StitchTokens.surfaceElevated,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: StitchTokens.border,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    _initials(inv.recipientIdentifier),
+                                    style: StitchTokens.bodyStrong.copyWith(
+                                      color: StitchTokens.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Mengundang',
+                                        style: StitchTokens.labelSm,
+                                      ),
+                                      Text(
+                                        inv.recipientIdentifier,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: StitchTokens.bodyStrong,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StitchInvitationBadge(status: inv.status),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: StitchTokens.surfaceElevated,
+                                borderRadius: BorderRadius.circular(
+                                  StitchTokens.radiusMd,
+                                ),
+                                border: Border.all(color: StitchTokens.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    inv.courtName ?? 'Lapangan CourtMate',
+                                    style: StitchTokens.bodyStrong,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 14,
+                                        color: StitchTokens.textSecondary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          inv.scheduleLabel ?? inv.bookingId,
+                                          style: StitchTokens.labelSm,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
 
                 const SizedBox(height: 12),
 
