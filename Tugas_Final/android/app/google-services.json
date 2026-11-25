@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "886008766997",
+    "project_id": "courtmate-40007",
+    "storage_bucket": "courtmate-40007.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:886008766997:android:c0fbbb331b1f384316e41c",
+        "android_client_info": {
+          "package_name": "id.courtmate.courtmate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoVda2xQVSmxKxXIUbGHxlTUkpyWi0EzI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

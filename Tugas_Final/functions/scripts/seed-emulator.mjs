@@ -7,7 +7,8 @@ const { Timestamp } = require("firebase-admin/firestore");
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 
-admin.initializeApp({ projectId: "demo-courtmate" });
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "courtmate-40007";
+admin.initializeApp({ projectId: PROJECT_ID });
 
 const db = admin.firestore();
 const auth = admin.auth();

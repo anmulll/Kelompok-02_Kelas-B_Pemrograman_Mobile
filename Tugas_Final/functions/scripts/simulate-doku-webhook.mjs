@@ -11,6 +11,7 @@ const admin = require("firebase-admin");
 const { generateDokuSignature } = require(path.join(functionsRoot, "lib/doku/signature.js"));
 
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "courtmate-40007";
 
 function loadSecretLocal() {
   const secretPath = path.join(functionsRoot, ".secret.local");
@@ -31,7 +32,7 @@ function loadSecretLocal() {
 
 async function resolveLatestPendingPayment() {
   if (!admin.apps.length) {
-    admin.initializeApp({ projectId: "demo-courtmate" });
+    admin.initializeApp({ projectId: PROJECT_ID });
   }
   const db = admin.firestore();
   const snap = await db
@@ -119,7 +120,7 @@ async function main() {
           secretKey,
         });
 
-  const emulatorUrl = "http://127.0.0.1:5001/demo-courtmate/us-central1/dokuWebhook";
+  const emulatorUrl = `http://127.0.0.1:5001/${PROJECT_ID}/us-central1/dokuWebhook`;
   console.log(`Mengirim webhook (${mode}) untuk order ${latest.providerOrderId} (${amount} ${latest.currency})...`);
 
   const response = await fetch(emulatorUrl, {

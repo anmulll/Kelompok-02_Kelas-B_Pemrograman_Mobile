@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import '../firebase_options.dart';
 
 class FirebaseBootstrap {
   FirebaseBootstrap._();
@@ -26,23 +27,25 @@ class FirebaseBootstrap {
 
   /// Menginisialisasi Firebase dengan aman.
   /// - Jika dijalankan dengan `--dart-define=USE_FIREBASE_EMULATOR=true`,
-  ///   aplikasi terhubung ke Firebase Emulator Suite lokal (`demo-courtmate`)
+  ///   aplikasi terhubung ke Firebase Emulator Suite lokal (`courtmate-40007`)
   ///   sehingga dapat menguji Cloud Functions + DOKU Sandbox nyata tanpa Blaze Plan.
-  /// - Jika tanpa emulator dan `flutterfire configure` belum dijalankan,
-  ///   aplikasi tetap terbuka dalam mode pratinjau UI lokal.
+  /// - Jika tanpa emulator, aplikasi menggunakan `DefaultFirebaseOptions.currentPlatform`
+  ///   untuk terhubung ke proyek Firebase Cloud (`courtmate-40007`), atau tetap terbuka
+  ///   dalam mode pratinjau UI lokal bila platform belum dikonfigurasi.
   static Future<void> ensureInitialized() async {
     if (_isInitialized) return;
 
     if (_useEmulatorFlag) {
       try {
-        await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: 'AIzaSyDemoCourtMateLocalEmulator0000000',
-            appId: '1:1234567890:android:1234567890abcdef',
-            messagingSenderId: '1234567890',
-            projectId: 'demo-courtmate',
-          ),
-        );
+        if (Firebase.apps.isEmpty) {
+          FirebaseOptions options;
+          try {
+            options = DefaultFirebaseOptions.currentPlatform;
+          } on UnsupportedError {
+            options = DefaultFirebaseOptions.android;
+          }
+          await Firebase.initializeApp(options: options);
+        }
         await FirebaseAuth.instance.useAuthEmulator(_emulatorHost, 9099);
         FirebaseFirestore.instance.useFirestoreEmulator(_emulatorHost, 8080);
         FirebaseFunctions.instance.useFunctionsEmulator(_emulatorHost, 5001);
@@ -60,7 +63,11 @@ class FirebaseBootstrap {
     }
 
     try {
-      await Firebase.initializeApp();
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
       _isInitialized = true;
       _isUsingEmulator = false;
       _configurationHint = null;
