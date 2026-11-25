@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// CourtMate Firestore Security Rules (CM-ARCH-DB-001 Bab 11)
+// Prinsip utama: Default deny, otorisasi berbasis UID & custom claims,
+// serta mutasi kritis (slot hold, booking, payment) wajib melalui Cloud Functions.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdminClaim() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    // 8.1 users/{uid}
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdminClaim();
+
+      // BR-002: Registrasi publik hanya boleh membuat role 'student'
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'student'
+        && request.resource.data.isActive == true;
+
+      // Pengguna tidak boleh mengubah role, uid, email, atau isActive sendiri
+      allow update: if isOwner(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.isActive == resource.data.isActive;
+
+      allow delete: if false;
+    }
+
+    // 8.2 courts/{courtId}
+    match /courts/{courtId} {
+      allow read: if (resource.data.isActive == true
+          && resource.data.verificationStatus == 'verified')
+        || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+        || isAdminClaim();
+
+      // Tulis lapangan dikendalikan melalui Cloud Function `manageCourt`
+      allow write: if false;
+    }
+
+    // 8.3 slots/{slotId}
+    match /slots/{slotId} {
+      allow read: if isSignedIn();
+      // Perubahan status available/held/booked hanya dari Cloud Functions
+      allow write: if false;
+    }
+
+    // 8.4 bookings/{bookingId}
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdminClaim()
+      );
+      // Pembuatan & perubahan status kritis wajib melalui Cloud Functions
+      allow write: if false;
+    }
+
+    // 8.5 payments/{paymentId}
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // 8.6 invitations/{invitationId}
+    match /invitations/{invitationId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientIdentifier == request.auth.token.email
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientIdentifier == request.auth.token.email
+      );
+      allow delete: if false;
+    }
+
+    // 8.6 notifications/{notificationId}
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if false;
+    }
+
+    // 8.7 payment_events/{eventId} — hanya untuk audit/deduplikasi backend
+    match /payment_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Default deny untuk koleksi lainnya
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
