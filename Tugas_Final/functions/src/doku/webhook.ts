@@ -74,16 +74,24 @@ export async function executeDokuWebhook(
     return { httpStatus: 401, body: { message: "Unauthorized" } };
   }
 
-  const expectedSignature = generateDokuSignature({
-    clientId,
-    requestId,
-    requestTimestamp,
-    requestTarget: req.requestTarget || "/dokuWebhook",
-    rawBody: req.rawBody,
-    secretKey: config.secretKey,
+  const cleanRequestTarget = (req.requestTarget || "/dokuWebhook").split("?")[0] || "/";
+  const candidateTargets = Array.from(
+    new Set([cleanRequestTarget, "/dokuWebhook", "/"])
+  );
+
+  const signatureValid = candidateTargets.some((targetPath) => {
+    const expectedSignature = generateDokuSignature({
+      clientId,
+      requestId,
+      requestTimestamp,
+      requestTarget: targetPath,
+      rawBody: req.rawBody,
+      secretKey: config.secretKey,
+    });
+    return timingSafeEqualSignature(expectedSignature, signature);
   });
 
-  if (!timingSafeEqualSignature(expectedSignature, signature)) {
+  if (!signatureValid) {
     logger.warn("dokuWebhook: Signature tidak valid", { requestId });
     return { httpStatus: 401, body: { message: "Invalid signature" } };
   }

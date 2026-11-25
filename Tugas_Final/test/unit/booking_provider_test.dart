@@ -3,6 +3,7 @@ import 'package:courtmate/models/booking_model.dart';
 import 'package:courtmate/models/invitation_model.dart';
 import 'package:courtmate/models/payment_model.dart';
 import 'package:courtmate/models/slot_model.dart';
+import 'package:courtmate/models/user_model.dart';
 import 'package:courtmate/providers/booking_provider.dart';
 import 'package:courtmate/services/booking_service.dart';
 import 'package:courtmate/services/payment_service.dart';
@@ -14,10 +15,13 @@ class _FakeCloudBookingService extends BookingService {
   final receivedInvCtrl = StreamController<List<InvitationModel>>.broadcast();
   final sentInvCtrl = StreamController<List<InvitationModel>>.broadcast();
   final notifCtrl = StreamController<List<NotificationModel>>.broadcast();
+  int watchUserBookingsCalls = 0;
 
   @override
-  Stream<List<BookingModel>> watchUserBookings(String userId) =>
-      bookingsCtrl.stream;
+  Stream<List<BookingModel>> watchUserBookings(String userId) {
+    watchUserBookingsCalls += 1;
+    return bookingsCtrl.stream;
+  }
 
   @override
   Stream<BookingModel?> watchBookingById(String bookingId) =>
@@ -235,6 +239,55 @@ void main() {
       expect(liveProvider.activePayment?.paymentStatus, PaymentStatus.paid);
 
       liveProvider.unbindUserStreams();
+      liveProvider.dispose();
+      await fakeBookingSvc.closeAll();
+      await fakePaymentSvc.closeAll();
+    },
+  );
+
+  test(
+    'syncAuthUser melakukan auto-bind sekali per UID dan melepas stream saat logout',
+    () async {
+      final fakeBookingSvc = _FakeCloudBookingService();
+      final fakePaymentSvc = _FakeCloudPaymentService();
+      final liveProvider = BookingProvider(
+        bookingService: fakeBookingSvc,
+        paymentService: fakePaymentSvc,
+        useLocalSandbox: false,
+      );
+
+      final now = DateTime(2026, 11, 26, 1);
+      final user = UserModel(
+        uid: 'uid_anmul',
+        name: 'Anmul',
+        email: 'anmul@kampus.ac.id',
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      // Dipanggil berulang untuk UID yang sama -> tetap hanya subscribe 1x
+      liveProvider.syncAuthUser(user);
+      liveProvider.syncAuthUser(user);
+      expect(fakeBookingSvc.watchUserBookingsCalls, 1);
+
+      fakeBookingSvc.notifCtrl.add([
+        NotificationModel(
+          id: 'n_1',
+          userId: 'uid_anmul',
+          title: 'Tes',
+          body: 'Notif masuk',
+          type: 'general',
+          createdAt: now,
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(liveProvider.notifications.length, 1);
+
+      // Logout (user == null) -> unbind dan kosongkan state tanpa memanggil notifyListeners saat build
+      liveProvider.syncAuthUser(null);
+      expect(liveProvider.notifications, isEmpty);
+      expect(liveProvider.bookings, isEmpty);
+
       liveProvider.dispose();
       await fakeBookingSvc.closeAll();
       await fakePaymentSvc.closeAll();

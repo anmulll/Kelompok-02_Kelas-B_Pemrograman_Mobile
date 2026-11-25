@@ -6,6 +6,10 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "tsc -p tsconfig.test.json && node --test lib-test/test/anmul-module.test.js",
+    "test:doku-sandbox": "npm run build && node scripts/test-doku-sandbox.mjs",
+    "test:webhook-emulator": "npm run build && node scripts/simulate-doku-webhook.mjs",
+    "seed:emulator": "node scripts/seed-emulator.mjs",
+    "emulators": "npm run build && npx firebase-tools emulators:start --project demo-courtmate --only auth,firestore,functions",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
     "deploy": "firebase deploy --only functions"
   },

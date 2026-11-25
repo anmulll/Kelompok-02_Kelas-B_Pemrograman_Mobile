@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 
 export type SlotStatus = "available" | "held" | "booked" | "unavailable";
 export type BookingStatus =
@@ -20,6 +21,8 @@ export interface UserRecord {
   uid: string;
   role: string;
   isActive: boolean;
+  name?: string;
+  email?: string;
 }
 
 export interface CourtRecord {
@@ -122,17 +125,17 @@ export interface BackendStore {
 }
 
 function toMs(val: unknown): number {
-  if (val && typeof (val as admin.firestore.Timestamp).toMillis === "function") {
-    return (val as admin.firestore.Timestamp).toMillis();
+  if (val && typeof (val as Timestamp).toMillis === "function") {
+    return (val as Timestamp).toMillis();
   }
   if (val instanceof Date) return val.getTime();
   if (typeof val === "number") return val;
   return 0;
 }
 
-function toTs(ms: number | null | undefined): admin.firestore.Timestamp | null {
+function toTs(ms: number | null | undefined): Timestamp | null {
   if (ms === null || ms === undefined) return null;
-  return admin.firestore.Timestamp.fromMillis(ms);
+  return Timestamp.fromMillis(ms);
 }
 
 export class FirestoreBackendStore implements BackendStore {
@@ -156,7 +159,7 @@ export class FirestoreBackendStore implements BackendStore {
     const snap = await this.db
       .collection("slots")
       .where("status", "==", "held")
-      .where("holdExpiresAt", "<=", admin.firestore.Timestamp.fromMillis(nowMs))
+      .where("holdExpiresAt", "<=", Timestamp.fromMillis(nowMs))
       .limit(limit)
       .get();
     return snap.docs.map((d) => d.id);
@@ -173,6 +176,8 @@ export class FirestoreBackendStore implements BackendStore {
             uid,
             role: String(d.role ?? "student"),
             isActive: d.isActive !== false,
+            name: d.name ? String(d.name) : undefined,
+            email: d.email ? String(d.email) : undefined,
           };
         },
         getCourt: async (courtId) => {

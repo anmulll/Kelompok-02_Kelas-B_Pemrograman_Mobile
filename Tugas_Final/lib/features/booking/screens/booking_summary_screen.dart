@@ -227,6 +227,33 @@ class BookingSummaryScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (provider.errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      StitchCard(
+                        padding: const EdgeInsets.all(14),
+                        backgroundColor: StitchTokens.surfaceElevated,
+                        borderColor: StitchTokens.error,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 18,
+                              color: StitchTokens.error,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                provider.errorMessage!,
+                                style: StitchTokens.labelSm.copyWith(
+                                  color: StitchTokens.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

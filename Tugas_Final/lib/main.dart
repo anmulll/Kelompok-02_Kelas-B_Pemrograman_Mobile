@@ -23,7 +23,11 @@ class CourtMateApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CourtProvider()),
-        ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, BookingProvider>(
+          create: (_) => BookingProvider(),
+          update: (_, auth, booking) =>
+              (booking ?? BookingProvider())..syncAuthUser(auth.currentUser),
+        ),
       ],
       child: MaterialApp(
         title: AppConstants.appName,

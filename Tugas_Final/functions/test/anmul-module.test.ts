@@ -382,6 +382,38 @@ describe("Modul Anmul — Booking, DOKU Checkout & Backend (AT-01 s.d. AT-12)", 
     assert.equal(store.slots.get("slot_1")!.status, "available");
   });
 
+  it("Cloud Run Request-Target '/': webhook bertanda tangan /dokuWebhook tetap diterima saat diteruskan sebagai '/'", async () => {
+    const store = seedStore();
+    const booking = await executeCreateBooking(
+      store,
+      { uid: "mhs_1", courtId: "court_1", slotId: "slot_1", idempotencyKey: "cloudrun-1" },
+      NOW_MS
+    );
+    const payment = await executeCreateDokuPayment(
+      store,
+      mockDokuGateway,
+      { uid: "mhs_1", bookingId: booking.bookingId },
+      NOW_MS + 5_000
+    );
+
+    const signedForDokuPath = makeSignedWebhookRequest({
+      invoiceNumber: payment.providerOrderId,
+      amount: 150_000,
+      status: "SUCCESS",
+      requestId: "cloudrun-req-1",
+    });
+
+    const res = await executeDokuWebhook(
+      store,
+      { expectedClientId: TEST_CLIENT_ID, secretKey: TEST_SECRET_KEY },
+      { ...signedForDokuPath, requestTarget: "/?utm_source=cloudrun" },
+      NOW_MS + 30_000
+    );
+
+    assert.equal(res.httpStatus, 200);
+    assert.equal(store.bookings.get(booking.bookingId)!.bookingStatus, "confirmed");
+  });
+
   it("AT-12: Secret scan pada kode aplikasi Flutter (lib/) tidak mengandung DOKU_SECRET_KEY", () => {
     const libDir = path.resolve(__dirname, "../../../lib");
     const files: string[] = [];

@@ -8,6 +8,7 @@ import '../models/court_model.dart';
 import '../models/invitation_model.dart';
 import '../models/payment_model.dart';
 import '../models/slot_model.dart';
+import '../models/user_model.dart';
 import '../services/booking_service.dart';
 import '../services/firebase_bootstrap.dart';
 import '../services/payment_service.dart';
@@ -48,6 +49,7 @@ class BookingProvider extends ChangeNotifier {
   List<InvitationModel> _sentInvitations = [];
   List<NotificationModel> _notifications = [];
 
+  String? _boundUserId;
   String? _activeBookingId;
   BookingModel? _watchedActiveBooking;
   PaymentModel? _watchedActivePayment;
@@ -294,10 +296,24 @@ class BookingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sinkronisasi otomatis dari `ChangeNotifierProxyProvider<AuthProvider, BookingProvider>`.
+  void syncAuthUser(UserModel? user) {
+    if (isUsingLocalSandbox) return;
+    if (user == null) {
+      if (_boundUserId != null) {
+        unbindUserStreams(notify: false);
+      }
+      return;
+    }
+    if (_boundUserId == user.uid) return;
+    bindUserStreams(user.uid, email: user.email);
+  }
+
   /// Menghubungkan seluruh stream real-time Firestore milik pengguna yang login
   /// (`bookings`, `invitations` masuk & terkirim, serta `notifications`).
   void bindUserStreams(String userId, {String? email}) {
     if (isUsingLocalSandbox) return;
+    _boundUserId = userId;
 
     _bookingsSub?.cancel();
     _bookingsSub = _bookingService.watchUserBookings(userId).listen((items) {
@@ -332,18 +348,25 @@ class BookingProvider extends ChangeNotifier {
     }
   }
 
-  void unbindUserStreams() {
+  void unbindUserStreams({bool notify = true}) {
+    _boundUserId = null;
     _bookingsSub?.cancel();
     _activeBookingSub?.cancel();
     _activePaymentSub?.cancel();
     _receivedInvitesSub?.cancel();
     _sentInvitesSub?.cancel();
     _notificationsSub?.cancel();
+    _bookings = [];
+    _receivedInvitations = [];
+    _sentInvitations = [];
+    _notifications = [];
     _watchedActiveBooking = null;
     _watchedActivePayment = null;
     _activeBookingId = null;
     _activePaymentSession = null;
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   void _watchActiveBooking(String bookingId) {

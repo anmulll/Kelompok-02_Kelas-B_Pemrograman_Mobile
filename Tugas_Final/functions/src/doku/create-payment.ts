@@ -1,20 +1,26 @@
 import * as crypto from "crypto";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import { BackendStore, FirestoreBackendStore } from "../shared/store";
 import { generateDokuSignature } from "./signature";
 
 const dokuClientId = defineSecret("DOKU_CLIENT_ID");
 const dokuSecretKey = defineSecret("DOKU_SECRET_KEY");
 
-const DOKU_SANDBOX_BASE_URL = "https://api-sandbox.doku.com";
-const DOKU_CHECKOUT_PATH = "/checkout/v1/payment";
+export const DOKU_SANDBOX_BASE_URL = "https://api-sandbox.doku.com";
+export const DOKU_CHECKOUT_PATH = "/checkout/v1/payment";
 
 export interface DokuCheckoutRequestPayload {
   providerOrderId: string;
   amount: number;
   currency: string;
   paymentDueMinutes: number;
+  customerId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  itemName?: string;
+  callbackUrl?: string;
 }
 
 export interface DokuCheckoutGateway {
@@ -31,7 +37,7 @@ export function createHttpDokuGateway(
       if (!clientId || !secretKey) {
         throw new HttpsError(
           "failed-precondition",
-          "Kredensial DOKU Sandbox belum dikonfigurasi pada Secret Manager backend."
+          "Kredensial DOKU Sandbox belum dikonfigurasi pada Secret Manager / .secret.local."
         );
       }
 
@@ -40,9 +46,22 @@ export function createHttpDokuGateway(
           amount: payload.amount,
           invoice_number: payload.providerOrderId,
           currency: payload.currency,
+          callback_url: payload.callbackUrl ?? "https://courtmate.id/payment-return",
+          line_items: [
+            {
+              name: payload.itemName ?? "Reservasi Lapangan CourtMate",
+              price: payload.amount,
+              quantity: 1,
+            },
+          ],
         },
         payment: {
           payment_due_date: payload.paymentDueMinutes,
+        },
+        customer: {
+          id: payload.customerId ?? "courtmate-user",
+          name: payload.customerName ?? "Mahasiswa CourtMate",
+          email: payload.customerEmail ?? "mahasiswa@courtmate.id",
         },
       });
 
@@ -69,14 +88,21 @@ export function createHttpDokuGateway(
         body: requestBody,
       });
 
+      const responseText = await response.text();
       if (!response.ok) {
+        logger.error("DOKU Checkout API menolak permintaan", {
+          status: response.status,
+          providerOrderId: payload.providerOrderId,
+          requestId,
+          dokuResponse: responseText.slice(0, 500),
+        });
         throw new HttpsError(
           "internal",
           `Gagal membuat sesi pembayaran DOKU Sandbox (HTTP ${response.status}).`
         );
       }
 
-      const json = (await response.json()) as {
+      const json = JSON.parse(responseText) as {
         response?: { payment?: { url?: string } };
       };
       const paymentUrl = json.response?.payment?.url;
@@ -144,7 +170,10 @@ export async function executeCreateDokuPayment(
       );
     }
 
-    const slot = await tx.getSlot(booking.slotId);
+    const [slot, court] = await Promise.all([
+      tx.getSlot(booking.slotId),
+      tx.getCourt(booking.courtId),
+    ]);
     const holdExpiresAtMs = slot?.holdExpiresAtMs ?? 0;
     if (!slot || slot.bookingId !== bookingId || holdExpiresAtMs <= nowMs) {
       throw new HttpsError("deadline-exceeded", "Masa hold slot telah berakhir.");
@@ -166,12 +195,20 @@ export async function executeCreateDokuPayment(
             expiresAt: new Date(holdExpiresAtMs).toISOString(),
           },
           booking,
+          user,
+          courtName: court?.name ?? "Lapangan CourtMate",
           holdExpiresAtMs,
         };
       }
     }
 
-    return { existing: null, booking, holdExpiresAtMs };
+    return {
+      existing: null,
+      booking,
+      user,
+      courtName: court?.name ?? "Lapangan CourtMate",
+      holdExpiresAtMs,
+    };
   });
 
   if (precheck.existing) {
@@ -185,12 +222,16 @@ export async function executeCreateDokuPayment(
   const sanitizedPrefix = bookingId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
   const providerOrderId = `CM-${sanitizedPrefix}-${nowMs}`;
 
-  // Tahap 2: Panggil DOKU Checkout API menggunakan Secret Manager
+  // Tahap 2: Panggil DOKU Checkout API menggunakan Secret Manager / .secret.local
   const { paymentUrl } = await gateway.createCheckoutSession({
     providerOrderId,
     amount: precheck.booking.amount,
     currency: precheck.booking.currency,
     paymentDueMinutes: remainingHoldMinutes,
+    customerId: input.uid,
+    customerName: precheck.user?.name,
+    customerEmail: precheck.user?.email,
+    itemName: `Booking ${precheck.courtName}`,
   });
 
   const paymentId = store.newId("payments");

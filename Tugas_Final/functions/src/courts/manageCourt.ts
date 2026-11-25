@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 /**
@@ -21,7 +22,7 @@ export const manageCourt = onCall(async (request) => {
   }
 
   const action = String(request.data?.action ?? "");
-  const nowTs = admin.firestore.Timestamp.now();
+  const nowTs = Timestamp.now();
 
   if (action === "upsertCourt") {
     const courtId = request.data?.courtId as string | undefined;
